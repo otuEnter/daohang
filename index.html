@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极简导航 - 经典单选版</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        :root { --bg: #f5f5f7; --card: #ffffff; --text: #1d1d1f; --dim: #86868b; --accent: #0066cc; --border: #d2d2d7; --shadow: rgba(0,0,0,0.05); }
+        [data-theme="dark"] { --bg: #000000; --card: #1c1c1e; --text: #f5f5f7; --dim: #86868b; --accent: #0a84ff; --border: #323234; --shadow: rgba(0,0,0,0.4); }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 40px 20px; transition: 0.5s; min-height: 100vh; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .theme-toggle { position: fixed; top: 20px; right: 20px; width: 44px; height: 44px; background: var(--card); border: 1px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; }
+        .search-bar { display: flex; max-width: 600px; margin: 0 auto 50px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 5px; box-shadow: 0 8px 30px var(--shadow); }
+        #sk { flex: 1; border: none; background: transparent; padding: 12px 18px; color: var(--text); outline: none; font-size: 16px; }
+        .search-btn { background: var(--accent); color: white; border: none; padding: 0 25px; border-radius: 15px; cursor: pointer; }
+        .toolbar { display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; }
+        .btn { padding: 10px 20px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; font-size: 13px; }
+        .btn-main { background: var(--accent); color: white; border: none; }
+        .cat-panel { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 25px; margin-bottom: 30px; display: none; }
+        .cat-panel.active { display: block; }
+        .nav-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 30px; flex-wrap: wrap; }
+        .tab { padding: 8px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; color: var(--dim); transition: 0.3s; }
+        .tab.active { background: var(--accent); color: white; font-weight: 500; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; }
+        .site-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 20px 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-decoration: none; color: var(--text); position: relative; transition: 0.4s; }
+        .site-card:hover { transform: translateY(-6px); border-color: var(--accent); }
+        .site-card img { width: 36px; height: 36px; border-radius: 10px; }
+        .site-card span { font-size: 13px; width: 100%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; }
+        .edit-icon { position: absolute; top: 12px; right: 12px; font-size: 12px; background: var(--bg); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; border: 1px solid var(--border); }
+        .site-card:hover .edit-icon { opacity: 1; }
+        .mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 2000; }
+        .modal { background: var(--card); padding: 30px; border-radius: 28px; width: 90%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
+        .input-box { width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; margin-bottom: 15px; }
+        .cat-multi-select { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; padding: 10px; background: var(--bg); border-radius: 12px; }
+        .cat-checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="theme-toggle" id="themeBtn">🌙</div>
+
+<div class="container">
+    <div class="search-bar">
+        <input type="text" id="sk" placeholder="搜索内容 (按 / 聚焦)...">
+        <button class="search-btn" onclick="search()">搜索</button>
+    </div>
+
+    <div class="toolbar">
+        <button class="btn btn-main" onclick="openForm()">➕ 添加网站</button>
+        <button class="btn" onclick="toggleCatPanel()">整理分类</button>
+        <button class="btn" onclick="exportData()">导出备份</button>
+        <button class="btn" onclick="importData()">导入恢复</button>
+    </div>
+
+    <div class="cat-panel" id="catPanel">
+        <div style="display:flex; gap:10px; margin-bottom:20px;"><input type="text" id="newCatInp" class="input-box" style="margin:0;flex:1" placeholder="新分类名称..."><button class="btn btn-main" onclick="addCat()">添加</button></div>
+        <div id="sortableCats" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+    </div>
+
+    <div class="nav-tabs" id="catBar"></div>
+    <div class="grid" id="siteGrid"></div>
+</div>
+
+<div class="mask" id="modalMask" onclick="if(event.target==this)closeForm()">
+    <div class="modal">
+        <h3 style="margin-bottom:20px;text-align:center">编辑网站</h3>
+        <input type="hidden" id="editIdx">
+        <input type="text" id="fName" class="input-box" placeholder="名称">
+        <input type="text" id="fUrl" class="input-box" placeholder="链接">
+        <p style="font-size: 12px; color: var(--dim); margin: 0 0 8px 5px;">所属分类 (可多选):</p>
+        <div class="cat-multi-select" id="fCatList"></div>
+        <textarea id="fDesc" class="input-box" rows="2" placeholder="备注"></textarea>
+        <div style="display:flex;gap:10px"><button class="btn" style="flex:1" onclick="closeForm()">取消</button><button class="btn btn-main" style="flex:1" onclick="saveSite()">保存</button></div>
+        <button id="delBtn" class="btn" style="width:100%;margin-top:10px;color:#ff3b30;border:none" onclick="delSite()">删除此项</button>
+    </div>
+</div>
+
+<script>
+    let sites = JSON.parse(localStorage.getItem('nav_sites_v2')) || [];
+    let cats = JSON.parse(localStorage.getItem('nav_cats')) || ["常用", "学术", "生活"];
+    // 修改处：当前选中的分类改为单值，默认为“全部”
+    let currentCat = "全部"; 
+
+    function renderUI() {
+        const box = document.getElementById('sortableCats');
+        box.innerHTML = cats.map(c => `<div class="tag-item" style="background:var(--bg);padding:8px 12px;border-radius:12px;display:flex;gap:8px;cursor:move;border:1px solid var(--border)"><span class="tag-txt">${c}</span><span onclick="delCat('${c}')" style="cursor:pointer;opacity:0.4">×</span></div>`).join('');
+        
+        const bar = document.getElementById('catBar');
+        let html = `<div class="tab ${currentCat === '全部' ? 'active' : ''}" onclick="switchCat('全部')">全部</div>`;
+        cats.forEach(c => html += `<div class="tab ${currentCat === c ? 'active' : ''}" onclick="switchCat('${c}')">${c}</div>`);
+        bar.innerHTML = html;
+        
+        const grid = document.getElementById('siteGrid');
+        // 修改处：过滤逻辑变为单选逻辑
+        const filtered = currentCat === "全部" 
+            ? sites 
+            : sites.filter(s => s.cats && s.cats.includes(currentCat));
+            
+        grid.innerHTML = filtered.map((s, i) => {
+            const realIdx = sites.indexOf(s);
+            const favicon = `https://www.google.com/s2/favicons?domain=${s.url}&sz=64`;
+            return `
+                <div class="site-card" onclick="window.open('${s.url}', '_blank')">
+                    <div class="edit-icon" onclick="event.stopPropagation(); openForm(${realIdx})">✏️</div>
+                    <img src="${favicon}" onerror="this.src='https://api.iowen.cn/favicon/${s.url.replace(/^https?:\/\//,'')}.png'">
+                    <span>${s.name}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 修改处：由 toggle 改为简单的单选 switch
+    function switchCat(name) {
+        currentCat = name;
+        renderUI();
+    }
+
+    function openForm(idx = null) {
+        document.getElementById('modalMask').style.display = 'flex';
+        const listWrap = document.getElementById('fCatList');
+        let siteCats = [];
+        if(idx !== null) {
+            const s = sites[idx];
+            document.getElementById('editIdx').value = idx;
+            document.getElementById('fName').value = s.name;
+            document.getElementById('fUrl').value = s.url;
+            document.getElementById('fDesc').value = s.desc || "";
+            siteCats = s.cats || []; 
+            document.getElementById('delBtn').style.display = 'block';
+        } else {
+            document.getElementById('editIdx').value = ""; document.getElementById('fName').value = ""; document.getElementById('fUrl').value = ""; document.getElementById('fDesc').value = "";
+            document.getElementById('delBtn').style.display = 'none';
+        }
+        listWrap.innerHTML = cats.map(c => `<label class="cat-checkbox"><input type="checkbox" value="${c}" ${siteCats.includes(c)?'checked':''}> ${c}</label>`).join('');
+    }
+
+    function saveSite() {
+        const name = document.getElementById('fName').value.trim();
+        let url = document.getElementById('fUrl').value.trim();
+        if(!name || !url) return alert("名称和网址必填");
+        if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+        const checkedCats = Array.from(document.querySelectorAll('#fCatList input:checked')).map(el => el.value);
+        if(checkedCats.length === 0) return alert("请至少选择一个分类");
+        const obj = { name, url, cats: checkedCats, desc: document.getElementById('fDesc').value.trim() };
+        const idx = document.getElementById('editIdx').value;
+        if(idx !== "") sites[idx] = obj; else sites.push(obj);
+        localStorage.setItem('nav_sites_v2', JSON.stringify(sites));
+        closeForm(); renderUI();
+    }
+
+    function exportData() {
+        const now = new Date();
+        const Y = now.getFullYear();
+        const M = String(now.getMonth() + 1).padStart(2, '0');
+        const D = String(now.getDate()).padStart(2, '0');
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        const fileName = `极简导航备份_${Y}${M}${D}_${h}${m}.json`;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify({ sites, cats })], {type: 'application/json'}));
+        a.download = fileName; 
+        a.click();
+    }
+
+    function importData() {
+        const inp = document.createElement('input'); inp.type = 'file';
+        inp.onchange = e => {
+            const r = new FileReader();
+            r.onload = ev => {
+                const res = JSON.parse(ev.target.result);
+                sites = res.sites; cats = res.cats;
+                localStorage.setItem('nav_sites_v2', JSON.stringify(sites));
+                localStorage.setItem('nav_cats', JSON.stringify(cats));
+                location.reload();
+            };
+            r.readAsText(e.target.files[0]);
+        };
+        inp.click();
+    }
+
+    function closeForm() { document.getElementById('modalMask').style.display = 'none'; }
+    function toggleCatPanel() { document.getElementById('catPanel').classList.toggle('active'); renderUI(); }
+    function addCat() { const v = document.getElementById('newCatInp').value.trim(); if(v && !cats.includes(v)) { cats.push(v); localStorage.setItem('nav_cats', JSON.stringify(cats)); renderUI(); } }
+    function delCat(n) { if(confirm("删除分类？")) { cats = cats.filter(c => c!==n); localStorage.setItem('nav_cats', JSON.stringify(cats)); renderUI(); } }
+    function delSite() { if(confirm("删除网址？")) { sites.splice(document.getElementById('editIdx').value, 1); localStorage.setItem('nav_sites_v2', JSON.stringify(sites)); closeForm(); renderUI(); } }
+    function search() { const k = document.getElementById('sk').value.trim(); if(k) window.open("https://cn.bing.com/search?q=" + encodeURIComponent(k)); }
+
+    document.getElementById('themeBtn').onclick = () => {
+        const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        localStorage.setItem('theme', t);
+        document.getElementById('themeBtn').innerText = t === 'dark' ? '☀️' : '🌙';
+    };
+
+    window.addEventListener('keydown', e => {
+        if (e.key === '/' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); document.getElementById('sk').focus(); }
+    });
+
+    window.onload = () => {
+        const t = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        document.getElementById('themeBtn').innerText = t === 'dark' ? '☀️' : '🌙';
+        renderUI();
+        Sortable.create(document.getElementById('sortableCats'), { animation: 150, onEnd: () => {
+            const n = []; document.querySelectorAll('.tag-txt').forEach(t => n.push(t.innerText));
+            cats = n; localStorage.setItem('nav_cats', JSON.stringify(cats)); renderUI();
+        }});
+    };
+</script>
+</body>
+</html>
